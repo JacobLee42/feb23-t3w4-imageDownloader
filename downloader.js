@@ -72,7 +72,13 @@ async function savePokemonPictureToDisk(targetUrl, targetDownloadFilename, targe
 
     }
 
+    let fullFileDestination = path.join(targetDownloadDirectory, targetDownloadFilename);
 
+    let fileDownloadStream = fs.createWriteStream(fullFileDestination);
+
+    await finished(Readable.fromWeb(imageData.body)).pipe(fileDownloadStream).catch(error => {
+        throw new Error("failed to save content to disk.");
+    })
 
 
 
