@@ -18,7 +18,8 @@ const {finished} = require("node:stream/promises")
 
 
 
-const path = require("node:path")
+const path = require("node:path");
+const { url } = require("node:inspector");
 
 
 
@@ -58,6 +59,22 @@ async function getPokemonPictureUrl(targetId = getRandomPokemonId()){
 //download that image and save it to the computer
 //return download images file path
 async function savePokemonPictureToDisk(targetUrl, targetDownloadFilename, targetDownloadDirectory = "."){
+
+// fetch request to the image url
+    let imageData = await fetch(targetUrl).catch((error) => {
+        throw new Error("image failed to download");
+
+    })
+// check if dir exists
+    if (!fs.existsSync(targetDownloadDirectory)){
+
+        await mkdir(targetDownloadDirectory);
+
+    }
+
+
+
+
 
 }
 
