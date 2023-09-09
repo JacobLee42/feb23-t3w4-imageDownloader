@@ -25,8 +25,19 @@ const { url } = require("node:inspector");
 
 
 function downloadPokemonPicture (targetId = getRandomPokemonId()){
+    return new Promise(async (resolve, reject) => {
 
+        try {
+        let newUrl = await getPokemonPictureUrl(targetId);
+        let savedFileLocation = await savePokemonPictureToDisk(newUrl, "ExampleImage.png", "storage");
+        resolve(savedFileLocation);
+
+        } catch (error) {
+            reject(error);
+        }
+    });
 }
+
 // generate a random number or use a user-provided number
 function getRandomPokemonId(){
     return Math.floor(Math.random() * 1010) + 1
