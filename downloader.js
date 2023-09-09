@@ -1,107 +1,120 @@
-// Sychronous library for doing file IO
-// check if directory exists
+// Sychronous library for doing file IO 
+// Check if directory exists
+const fs = require("node:fs");
 
-const fs = require("node:fs")
+// Asynchronous, making a directory can take time
+// but we do want to wait for this to finish 
+const {mkdir} = require("node:fs/promises");
 
+// Streaming data, safer than traditional file saving/downloading/etc 
+// This is synchronous, so we wait and it IS blocking
+const { Readable } = require("node:stream");
 
-
-
-const {mkdir} = require("node:fs/promises")
-
-// streaming data. safer than traditional file saving
-// This is sychronous, so it is  blocking
-const {Readable} = require("node:stream");
-
-const {finished} = require("node:stream/promises")
-
-// Node file & directory path helper system
+// Wait for streaming to finish, this can take time so it should be a promise
+// but shouldn't be blocking, so it's a promise instead of async 
+const {finished} = require("node:stream/promises");
 
 
-
+// Node file & directory path helper system 
+// /folder/folder/filename.png 
+// \folder\folder\filename.png 
 const path = require("node:path");
-const { url } = require("node:inspector");
 
 
+function downloadPokemonPicture(targetId = getRandomPokemonId()){
+	return new Promise(async (resolve, reject)  => {
 
+		try {
 
-function downloadPokemonPicture (targetId = getRandomPokemonId()){
-    return new Promise(async (resolve, reject) => {
+			// Step 1: get the image URL 
+			let newUrl = await getPokemonPictureUrl(targetId); 
 
-        try {
-        let newUrl = await getPokemonPictureUrl(targetId);
-        let savedFileLocation = await savePokemonPictureToDisk(newUrl, "ExampleImage.png", "storage");
-        resolve(savedFileLocation);
+            let pokemonName = await fetch("https://pokeapi.co/api/v2/pokemon/" + targetId).then (async (response) => {
+                return await response.json();
+            }).then(json => {
+                return json.name;
+            })
 
-        } catch (error) {
-            reject(error);
-        }
-    });
+			// Step 2: do the download 
+			let savedFileLocation = await savePokemonPictureToDisk(newUrl, `Image-${targetId}.png`, "storage");
+			// return savedFileLocation;
+			resolve(savedFileLocation);
+
+		} catch (error) {
+			reject(error);
+		}
+
+	});
 }
 
-// generate a random number or use a user-provided number
+// Generate a random number or use a user-provided number
 function getRandomPokemonId(){
-    return Math.floor(Math.random() * 1010) + 1
+	return Math.floor(Math.random() * 1010) + 1
 }
 
-
-// retrieve Pokemon data for that number
-// retrieve the image URL from the pokemon data
+// Retrieve Pokemon data for that number
+// Retrieve the image URL from that Pokemon data 
 async function getPokemonPictureUrl(targetId = getRandomPokemonId()){
-    let response = await fetch("https://pokeapi.co/api/v2/pokemon/" + targetId).catch(error => {
-        throw new Error("API failure.");
-});
 
+	// Retrieve the API data
+	let response = await fetch("https://pokeapi.co/api/v2/pokemon/" + targetId).catch(error => {
+		throw new Error("API failure.");
+	});
 
-    if (response.status == "404"){
-        throw new Error("API did not have data for the requested ID.");
-    }
+	if (response.status == "404"){
+		throw new Error("API did not have data for the requested ID.");
+	}
 
+	// Convert the response into usable JSON 
+	let data = await response.json().catch(error => {
+		throw new Error("API did not return valid JSON.");
+	}); 
 
+	// Not optimised, it makes unnecessary variables
+	// let imageUrl = data.sprites.other["official-artwork"].front_default;
+	// return imageUrl;
 
-    let data = await response.json().catch(error => {
-        throw new Error("API did not return valid JSON.");
-    })
+	// More-optimised, no extra junk variables
+	return data.sprites.other["official-artwork"].front_default;
 }
 
-    return data.sprites.other["official-artwork"].front_default;
-    
 
-
-//download that image and save it to the computer
-//return download images file path
+// Download that image and save it to the computer 
+// Return the downloaded image's file path 
 async function savePokemonPictureToDisk(targetUrl, targetDownloadFilename, targetDownloadDirectory = "."){
+	// Fetch request to the image URL 
+	let imageData = await fetch(targetUrl).catch((error) => {
+		throw new Error("Image failed to download.");
+	});
 
-// fetch request to the image url
-    let imageData = await fetch(targetUrl).catch((error) => {
-        throw new Error("image failed to download");
+	// Check if target directory exists
+	if (!fs.existsSync(targetDownloadDirectory)){
+		// Make a directory if we need to
+		await mkdir(targetDownloadDirectory);
+	}
 
-    })
-// check if dir exists
-    if (!fs.existsSync(targetDownloadDirectory)){
+	// Create a JS-friendly file path
+	let fullFileDestination = path.join(targetDownloadDirectory, targetDownloadFilename);
+	// someFolder, CoolPokemon.png 
+	// /someFolder/CoolPokemon.png 
+	// \someFolder\CoolPokemon.png 
 
-        await mkdir(targetDownloadDirectory);
+	// Stream the image from the fetch to the computer 
+	let fileDownloadStream = fs.createWriteStream(fullFileDestination);
 
-    }
+	//    get data as bytes from the web request --- pipe the bytes into the hard drive 
+	await finished(Readable.fromWeb(imageData.body)).pipe(fileDownloadStream).catch(error => {
+		throw new Error("Failed to save content to disk.");
+	});
 
-    let fullFileDestination = path.join(targetDownloadDirectory, targetDownloadFilename);
-
-    let fileDownloadStream = fs.createWriteStream(fullFileDestination);
-
-    await finished(Readable.fromWeb(imageData.body)).pipe(fileDownloadStream).catch(error => {
-        throw new Error("failed to save content to disk.");
-    });
-
-
-    return fullFileDestination;
+	// Return the saved image location 
+	return fullFileDestination;
 }
-
-
-
 
 
 module.exports = {
-    downloadPokemonPicture,
-    savePokemonPictureToDisk,
-    getPokemonPictureUrl,
-    getRandomPokemonId
+	downloadPokemonPicture,
+	savePokemonPictureToDisk,
+	getPokemonPictureUrl,
+	getRandomPokemonId
 }
