@@ -78,10 +78,10 @@ async function savePokemonPictureToDisk(targetUrl, targetDownloadFilename, targe
 
     await finished(Readable.fromWeb(imageData.body)).pipe(fileDownloadStream).catch(error => {
         throw new Error("failed to save content to disk.");
-    })
+    });
 
 
-
+    return fullFileDestination;
 }
 
 
